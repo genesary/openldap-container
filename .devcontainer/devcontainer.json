@@ -6,11 +6,11 @@
             "moby": false
         },
         "ghcr.io/devcontainers/features/git:1": {},
-        "ghcr.io/devcontainers/features/common-utils:2": {
+        "ghcr.io/devcontainers/features/common-utils:2.6.0": {
             "upgradePackages": true
         },
         "ghcr.io/lukewiwa/features/shellcheck:0": {},
-        "ghcr.io/devcontainers/features/node:1": {},
+        "ghcr.io/devcontainers/features/node:2.1.0": {},
         "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
     },
     "runArgs": [
@@ -28,5 +28,11 @@
                 "ms-azuretools.vscode-docker"
             ]
         }
+    },
+    "mounts": [
+        "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached"
+    ],
+    "containerEnv": {
+        "CLAUDE_CONFIG_DIR": "/root/.claude"
     }
 }
