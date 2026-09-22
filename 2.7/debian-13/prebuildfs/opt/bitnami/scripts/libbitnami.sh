@@ -41,7 +41,7 @@ print_welcome_page() {
 #   None
 #########################
 print_image_welcome_page() {
-    local github_url="https://github.com/Ripolin/openldap-container"
+    local github_url="https://github.com/genesary/openldap-container"
 
     info ""
     info "${BOLD}Welcome to the Bitnami-compatible ${BITNAMI_APP_NAME} container${RESET}"

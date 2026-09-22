@@ -17,7 +17,7 @@ jobs:
 
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: Ripolin/openldap
+      IMAGE_NAME: genesary/openldap
       OPENLDAP_VERSION: 2.6.15
 
     steps:

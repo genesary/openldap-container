@@ -12,7 +12,7 @@ A drop-in replacement for the [Bitnami OpenLDAP image](https://github.com/bitnam
 # docker-compose.yml
 services:
   openldap:
-    image: ghcr.io/ripolin/openldap:latest
+    image: ghcr.io/genesary/openldap:latest
     ports:
       - '1389:1389'
       - '1636:1636'
@@ -41,7 +41,7 @@ Both lines are built from the same base image and ship the same modules, entrypo
 
 Every build also publishes an immutable tag `<version>-debian-13-<short-sha>`, where `<short-sha>` is the 7-character Git commit the image was built from. The tags above are mutable and always point to the most recent build; use the commit-suffixed tag to pin a specific one. The same value is exposed inside the image as `IMAGE_REVISION`.
 
-Images are published to [ghcr.io/ripolin/openldap](https://github.com/Ripolin/openldap/pkgs/container/openldap) for `linux/amd64` and `linux/arm64`.
+Images are published to [ghcr.io/genesary/openldap](https://github.com/genesary/openldap/pkgs/container/openldap) for `linux/amd64` and `linux/arm64`.
 
 ## Compiled modules
 
