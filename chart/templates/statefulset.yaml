@@ -1,0 +1,404 @@
+{{- /*
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+apiVersion: {{ include "common.capabilities.statefulset.apiVersion" . }}
+kind: StatefulSet
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
+  {{- if or .Values.statefulsetAnnotations .Values.commonAnnotations }}
+  {{- $annotations := include "common.tplvalues.merge" ( dict "values" ( list .Values.statefulsetAnnotations .Values.commonAnnotations ) "context" . ) }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "openldap.headlessServiceName" . }}
+  podManagementPolicy: {{ .Values.podManagementPolicy }}
+  {{- if .Values.updateStrategy }}
+  updateStrategy: {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  {{- if .Values.persistentVolumeClaimRetentionPolicy.enabled }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.persistentVolumeClaimRetentionPolicy.whenDeleted }}
+    whenScaled: {{ .Values.persistentVolumeClaimRetentionPolicy.whenScaled }}
+  {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.podLabels .Values.commonLabels ) "context" . ) }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
+      annotations:
+        {{- if (include "openldap.createSecret" .) }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.customLdifFiles (not .Values.existingCustomLdifConfigMap) }}
+        checksum/ldifs: {{ include (print $.Template.BasePath "/configmap-ldifs.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.customSchemaFiles (not .Values.existingCustomSchemaConfigMap) }}
+        checksum/schemas: {{ include (print $.Template.BasePath "/configmap-schemas.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "openldap.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "openldap.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      {{- if .Values.hostAliases }}
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAffinityPreset "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAntiAffinityPreset "customLabels" $podLabels "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.nodeAffinityPreset.type "key" .Values.nodeAffinityPreset.key "values" .Values.nodeAffinityPreset.values) | nindent 10 }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" ( dict "value" .Values.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.tolerations "context" .) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.topologySpreadConstraints "context" .) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      {{- if .Values.schedulerName }}
+      schedulerName: {{ .Values.schedulerName | quote }}
+      {{- end }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.podSecurityContext "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.initContainers }}
+      initContainers: {{- include "common.tplvalues.render" (dict "value" .Values.initContainers "context" $) | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: openldap
+          image: {{ template "openldap.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.containerSecurityContext "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.diagnosticMode.enabled }}
+          command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
+          {{- else if .Values.command }}
+          command: {{- include "common.tplvalues.render" (dict "value" .Values.command "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.diagnosticMode.enabled }}
+          args: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.args "context" $) | nindent 12 }}
+          {{- else if .Values.args }}
+          args: {{- include "common.tplvalues.render" (dict "value" .Values.args "context" $) | nindent 12 }}
+          {{- end }}
+          env:
+            - name: BITNAMI_DEBUG
+              value: {{ ternary "true" "false" (or .Values.image.debug .Values.diagnosticMode.enabled) | quote }}
+            - name: LDAP_PORT_NUMBER
+              value: {{ .Values.containerPorts.ldap | quote }}
+            - name: LDAP_LDAPS_PORT_NUMBER
+              value: {{ .Values.containerPorts.ldaps | quote }}
+            - name: LDAP_ROOT
+              value: {{ .Values.ldap.root | quote }}
+            {{- if .Values.ldap.suffix }}
+            - name: LDAP_SUFFIX
+              value: {{ .Values.ldap.suffix | quote }}
+            {{- end }}
+            - name: LDAP_ADMIN_USERNAME
+              value: {{ .Values.auth.adminUsername | quote }}
+            {{- if .Values.auth.usePasswordFiles }}
+            - name: LDAP_ADMIN_PASSWORD_FILE
+              value: {{ printf "/opt/bitnami/openldap/secrets/%s" .Values.auth.secretKeys.adminPasswordKey | quote }}
+            {{- else }}
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "openldap.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.adminPasswordKey }}
+            {{- end }}
+            - name: LDAP_CONFIG_ADMIN_ENABLED
+              value: {{ include "openldap.yesno" .Values.auth.configAdminEnabled | quote }}
+            {{- if .Values.auth.configAdminEnabled }}
+            - name: LDAP_CONFIG_ADMIN_USERNAME
+              value: {{ .Values.auth.configAdminUsername | quote }}
+            {{- if .Values.auth.usePasswordFiles }}
+            - name: LDAP_CONFIG_ADMIN_PASSWORD_FILE
+              value: {{ printf "/opt/bitnami/openldap/secrets/%s" .Values.auth.secretKeys.configAdminPasswordKey | quote }}
+            {{- else }}
+            - name: LDAP_CONFIG_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "openldap.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.configAdminPasswordKey }}
+            {{- end }}
+            {{- end }}
+            - name: LDAP_SKIP_DEFAULT_TREE
+              value: {{ include "openldap.yesno" .Values.ldap.skipDefaultTree | quote }}
+            {{- if not .Values.ldap.skipDefaultTree }}
+            - name: LDAP_USERS
+              value: {{ join "," .Values.auth.users | quote }}
+            - name: LDAP_PASSWORDS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "openldap.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.userPasswordsKey }}
+            - name: LDAP_USER_OU
+              value: {{ .Values.ldap.userOu | quote }}
+            - name: LDAP_GROUP_OU
+              value: {{ .Values.ldap.groupOu | quote }}
+            - name: LDAP_GROUP
+              value: {{ .Values.ldap.group | quote }}
+            {{- end }}
+            - name: LDAP_ADD_SCHEMAS
+              value: {{ include "openldap.yesno" .Values.ldap.addSchemas | quote }}
+            - name: LDAP_EXTRA_SCHEMAS
+              value: {{ join "," .Values.ldap.extraSchemas | quote }}
+            - name: LDAP_ALLOW_ANON_BINDING
+              value: {{ include "openldap.yesno" .Values.ldap.allowAnonBinding | quote }}
+            - name: LDAP_LOGLEVEL
+              value: {{ .Values.ldap.logLevel | quote }}
+            - name: LDAP_PASSWORD_HASH
+              value: {{ .Values.ldap.passwordHash | quote }}
+            - name: LDAP_ULIMIT_NOFILES
+              value: {{ .Values.ldap.ulimitNofiles | quote }}
+            - name: LDAP_CONFIGURE_PPOLICY
+              value: {{ include "openldap.yesno" .Values.ldap.ppolicy.enabled | quote }}
+            {{- if .Values.ldap.ppolicy.enabled }}
+            - name: LDAP_PPOLICY_USE_LOCKOUT
+              value: {{ include "openldap.yesno" .Values.ldap.ppolicy.useLockout | quote }}
+            - name: LDAP_PPOLICY_HASH_CLEARTEXT
+              value: {{ include "openldap.yesno" .Values.ldap.ppolicy.hashCleartext | quote }}
+            {{- end }}
+            - name: LDAP_ENABLE_ACCESSLOG
+              value: {{ include "openldap.yesno" .Values.ldap.accesslog.enabled | quote }}
+            {{- if .Values.ldap.accesslog.enabled }}
+            - name: LDAP_ACCESSLOG_DB
+              value: {{ .Values.ldap.accesslog.db | quote }}
+            - name: LDAP_ACCESSLOG_LOGOPS
+              value: {{ .Values.ldap.accesslog.logops | quote }}
+            - name: LDAP_ACCESSLOG_LOGSUCCESS
+              value: {{ .Values.ldap.accesslog.logsuccess | quote }}
+            - name: LDAP_ACCESSLOG_LOGPURGE
+              value: {{ .Values.ldap.accesslog.logpurge | quote }}
+            - name: LDAP_ACCESSLOG_LOGOLD
+              value: {{ .Values.ldap.accesslog.logold | quote }}
+            - name: LDAP_ACCESSLOG_LOGOLDATTR
+              value: {{ .Values.ldap.accesslog.logoldattr | quote }}
+            - name: LDAP_ACCESSLOG_ADMIN_USERNAME
+              value: {{ .Values.ldap.accesslog.adminUsername | quote }}
+            {{- if .Values.auth.usePasswordFiles }}
+            - name: LDAP_ACCESSLOG_ADMIN_PASSWORD_FILE
+              value: {{ printf "/opt/bitnami/openldap/secrets/%s" .Values.auth.secretKeys.accesslogAdminPasswordKey | quote }}
+            {{- else }}
+            - name: LDAP_ACCESSLOG_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "openldap.secretName" . }}
+                  key: {{ .Values.auth.secretKeys.accesslogAdminPasswordKey }}
+            {{- end }}
+            {{- end }}
+            - name: LDAP_ENABLE_SYNCPROV
+              value: {{ include "openldap.yesno" .Values.ldap.syncprov.enabled | quote }}
+            {{- if .Values.ldap.syncprov.enabled }}
+            - name: LDAP_SYNCPROV_CHECKPPOINT
+              value: {{ .Values.ldap.syncprov.checkpoint | quote }}
+            - name: LDAP_SYNCPROV_SESSIONLOG
+              value: {{ .Values.ldap.syncprov.sessionlog | quote }}
+            {{- end }}
+            - name: LDAP_ENABLE_PROXYPROTO
+              value: {{ include "openldap.yesno" .Values.ldap.proxyProtocol.enabled | quote }}
+            {{- if .Values.ldap.proxyProtocol.enabled }}
+            - name: LDAP_PROXYPROTO_PORT_NUMBER
+              value: {{ .Values.ldap.proxyProtocol.ldapPort | quote }}
+            - name: LDAP_PROXYPROTO_LDAPS_PORT_NUMBER
+              value: {{ .Values.ldap.proxyProtocol.ldapsPort | quote }}
+            {{- end }}
+            - name: LDAP_ENABLE_TLS
+              value: {{ include "openldap.yesno" .Values.tls.enabled | quote }}
+            {{- if .Values.tls.enabled }}
+            - name: LDAP_REQUIRE_TLS
+              value: {{ include "openldap.yesno" .Values.tls.require | quote }}
+            - name: LDAP_TLS_VERIFY_CLIENTS
+              value: {{ .Values.tls.verifyClients | quote }}
+            - name: LDAP_TLS_CERT_FILE
+              value: {{ printf "/opt/bitnami/openldap/certs/%s" .Values.tls.certFilename | quote }}
+            - name: LDAP_TLS_KEY_FILE
+              value: {{ printf "/opt/bitnami/openldap/certs/%s" .Values.tls.certKeyFilename | quote }}
+            - name: LDAP_TLS_CA_FILE
+              value: {{ printf "/opt/bitnami/openldap/certs/%s" .Values.tls.certCAFilename | quote }}
+            {{- end }}
+            {{- if .Values.extraEnvVars }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.extraEnvVarsCM .Values.extraEnvVarsSecret }}
+          envFrom:
+            {{- if .Values.extraEnvVarsCM }}
+            - configMapRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.extraEnvVarsCM "context" $) }}
+            {{- end }}
+            {{- if .Values.extraEnvVarsSecret }}
+            - secretRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.extraEnvVarsSecret "context" $) }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- else if ne .Values.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.resourcesPreset) | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: ldap
+              containerPort: {{ .Values.containerPorts.ldap }}
+            {{- if .Values.tls.enabled }}
+            - name: ldaps
+              containerPort: {{ .Values.containerPorts.ldaps }}
+            {{- end }}
+            {{- if (include "openldap.exposePldap" .) }}
+            - name: pldap
+              containerPort: {{ .Values.ldap.proxyProtocol.ldapPort }}
+            {{- end }}
+            {{- if (include "openldap.exposePldaps" .) }}
+            - name: pldaps
+              containerPort: {{ .Values.ldap.proxyProtocol.ldapsPort }}
+            {{- end }}
+            {{- if .Values.extraContainerPorts }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraContainerPorts "context" $) | nindent 12 }}
+            {{- end }}
+          {{- if not .Values.diagnosticMode.enabled }}
+          {{- if .Values.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.livenessProbe.enabled }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.livenessProbe "enabled") "context" $) | nindent 12 }}
+            tcpSocket:
+              port: ldap
+          {{- end }}
+          {{- if .Values.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.readinessProbe.enabled }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.readinessProbe "enabled") "context" $) | nindent 12 }}
+            tcpSocket:
+              port: ldap
+          {{- end }}
+          {{- if .Values.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.startupProbe.enabled }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.startupProbe "enabled") "context" $) | nindent 12 }}
+            tcpSocket:
+              port: ldap
+          {{- end }}
+          {{- end }}
+          {{- if .Values.lifecycleHooks }}
+          lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.lifecycleHooks "context" $) | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: empty-dir
+              mountPath: /opt/bitnami/openldap/share
+              subPath: app-share-dir
+            - name: empty-dir
+              mountPath: /opt/bitnami/openldap/var/run
+              subPath: app-run-dir
+            - name: empty-dir
+              mountPath: /tmp
+              subPath: tmp-dir
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+              {{- if .Values.persistence.subPath }}
+              subPath: {{ .Values.persistence.subPath }}
+              {{- end }}
+            {{- if .Values.auth.usePasswordFiles }}
+            - name: openldap-secrets
+              mountPath: /opt/bitnami/openldap/secrets
+              readOnly: true
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - name: openldap-certs
+              mountPath: /opt/bitnami/openldap/certs
+              readOnly: true
+            {{- end }}
+            {{- if (include "openldap.hasCustomLdifs" .) }}
+            - name: custom-ldifs
+              mountPath: /ldifs
+              readOnly: true
+            {{- end }}
+            {{- if (include "openldap.hasCustomSchemas" .) }}
+            - name: custom-schemas
+              mountPath: /schemas
+              readOnly: true
+            {{- end }}
+            {{- if .Values.extraVolumeMounts }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
+        {{- if .Values.sidecars }}
+        {{- include "common.tplvalues.render" ( dict "value" .Values.sidecars "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: empty-dir
+          emptyDir: {}
+        {{- if .Values.auth.usePasswordFiles }}
+        - name: openldap-secrets
+          secret:
+            secretName: {{ include "openldap.secretName" . }}
+            defaultMode: 0440
+        {{- end }}
+        {{- if .Values.tls.enabled }}
+        - name: openldap-certs
+          secret:
+            secretName: {{ include "openldap.tlsSecretName" . }}
+            defaultMode: 0440
+        {{- end }}
+        {{- if (include "openldap.hasCustomLdifs" .) }}
+        - name: custom-ldifs
+          configMap:
+            name: {{ include "openldap.customLdifConfigMapName" . }}
+        {{- end }}
+        {{- if (include "openldap.hasCustomSchemas" .) }}
+        - name: custom-schemas
+          configMap:
+            name: {{ include "openldap.customSchemaConfigMapName" . }}
+        {{- end }}
+        {{- if .Values.extraVolumes }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
+        {{- if not .Values.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- else if .Values.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ tpl .Values.persistence.existingClaim . }}
+        {{- end }}
+  {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: data
+        {{- if .Values.persistence.annotations }}
+        annotations: {{- include "common.tplvalues.render" (dict "value" .Values.persistence.annotations "context" $) | nindent 10 }}
+        {{- end }}
+        {{- $claimLabels := include "common.tplvalues.merge" (dict "values" (list .Values.persistence.labels .Values.commonLabels) "context" .) }}
+        labels: {{- include "common.labels.matchLabels" (dict "customLabels" $claimLabels "context" $) | nindent 10 }}
+      spec:
+        accessModes:
+        {{- range .Values.persistence.accessModes }}
+          - {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | quote }}
+        {{- if .Values.persistence.selector }}
+        selector: {{- include "common.tplvalues.render" (dict "value" .Values.persistence.selector "context" $) | nindent 10 }}
+        {{- end }}
+        {{- if .Values.persistence.dataSource }}
+        dataSource: {{- include "common.tplvalues.render" (dict "value" .Values.persistence.dataSource "context" $) | nindent 10 }}
+        {{- end }}
+        {{- include "common.storage.class" (dict "persistence" .Values.persistence "global" .Values.global) | nindent 8 }}
+  {{- end }}

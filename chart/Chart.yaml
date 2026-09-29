@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: APACHE-2.0
+
+apiVersion: v2
+name: openldap
+description: OpenLDAP is an open-source implementation of the Lightweight Directory Access Protocol. This chart deploys the Bitnami-compatible OpenLDAP image built from upstream sources.
+type: application
+version: 0.1.0
+appVersion: 2.7.1
+home: https://github.com/genesary/openldap
+icon: https://www.openldap.org/images/headers/LDAPworm.gif
+keywords:
+  - openldap
+  - ldap
+  - directory
+  - authentication
+sources:
+  - https://github.com/genesary/openldap
+  - https://git.openldap.org/openldap/openldap
+annotations:
+  images: |
+    - name: openldap
+      image: ghcr.io/genesary/openldap:2.7.1-debian-13
+  licenses: Apache-2.0
+dependencies:
+  - name: common
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: 2.x.x
+    tags:
+      - bitnami-common

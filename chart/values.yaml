@@ -1,0 +1,758 @@
+# SPDX-License-Identifier: APACHE-2.0
+
+## @section Global parameters
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
+##
+
+## @param global.imageRegistry Global Docker image registry
+## @param global.imagePullSecrets Global Docker registry secret names as an array
+## @param global.defaultStorageClass Global default StorageClass for Persistent Volume(s)
+##
+global:
+  imageRegistry: ""
+  ## E.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+  defaultStorageClass: ""
+  ## Security parameters
+  ##
+  security:
+    ## @param global.security.allowInsecureImages Allows skipping image verification
+    allowInsecureImages: false
+  ## Compatibility adaptations for Kubernetes platforms
+  ##
+  compatibility:
+    ## Compatibility adaptations for Openshift
+    ##
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
+      ##
+      adaptSecurityContext: auto
+
+## @section Common parameters
+##
+
+## @param kubeVersion Override Kubernetes version
+##
+kubeVersion: ""
+## @param nameOverride String to partially override common.names.name
+##
+nameOverride: ""
+## @param fullnameOverride String to fully override common.names.fullname
+##
+fullnameOverride: ""
+## @param namespaceOverride String to fully override common.names.namespace
+##
+namespaceOverride: ""
+## @param commonLabels Labels to add to all deployed objects
+##
+commonLabels: {}
+## @param commonAnnotations Annotations to add to all deployed objects
+##
+commonAnnotations: {}
+## @param clusterDomain Kubernetes cluster domain name
+##
+clusterDomain: cluster.local
+## @param extraDeploy Array of extra objects to deploy with the release
+##
+extraDeploy: []
+## Enable diagnostic mode in the statefulset
+##
+diagnosticMode:
+  ## @param diagnosticMode.enabled Enable diagnostic mode (all probes will be disabled and the command will be overridden)
+  ##
+  enabled: false
+  ## @param diagnosticMode.command Command to override all containers in the statefulset
+  ##
+  command:
+    - sleep
+  ## @param diagnosticMode.args Args to override all containers in the statefulset
+  ##
+  args:
+    - infinity
+
+## @section OpenLDAP parameters
+##
+
+## OpenLDAP image
+## ref: https://github.com/genesary/openldap/pkgs/container/openldap
+## @param image.registry [default: ghcr.io] OpenLDAP image registry
+## @param image.repository [default: genesary/openldap] OpenLDAP image repository
+## @skip image.tag OpenLDAP image tag (immutable tags are recommended)
+## @param image.digest OpenLDAP image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+## @param image.pullPolicy OpenLDAP image pull policy
+## @param image.pullSecrets OpenLDAP image pull secrets
+## @param image.debug Enable OpenLDAP image debug mode
+##
+image:
+  registry: ghcr.io
+  repository: genesary/openldap
+  tag: 2.7.1-debian-13
+  digest: ""
+  ## Specify a imagePullPolicy
+  ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
+  ##
+  pullPolicy: IfNotPresent
+  ## Optionally specify an array of imagePullSecrets.
+  ## Secrets must be manually created in the namespace.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  ## e.g:
+  ## pullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  pullSecrets: []
+  ## Enable debug mode
+  ##
+  debug: false
+
+## Authentication parameters
+##
+auth:
+  ## @param auth.adminUsername OpenLDAP admin username (bind DN will be `cn=<adminUsername>,<ldap.root>`)
+  ##
+  adminUsername: admin
+  ## @param auth.adminPassword OpenLDAP admin password (randomly generated if empty and `auth.existingSecret` is not set)
+  ##
+  adminPassword: ""
+  ## @param auth.configAdminEnabled Create an admin user for the `cn=config` tree
+  ##
+  configAdminEnabled: false
+  ## @param auth.configAdminUsername OpenLDAP `cn=config` admin username
+  ##
+  configAdminUsername: admin
+  ## @param auth.configAdminPassword OpenLDAP `cn=config` admin password (randomly generated if empty and `auth.existingSecret` is not set)
+  ##
+  configAdminPassword: ""
+  ## @param auth.users List of users created in the default tree (ignored when `ldap.skipDefaultTree` is true or custom LDIF files are provided)
+  ##
+  users:
+    - user01
+    - user02
+  ## @param auth.passwords List of passwords for `auth.users`, in the same order (randomly generated if empty and `auth.existingSecret` is not set)
+  ##
+  passwords: []
+  ## @param auth.existingSecret Name of an existing secret holding the OpenLDAP credentials (keys defined by `auth.secretKeys`)
+  ##
+  existingSecret: ""
+  ## @param auth.secretKeys.adminPasswordKey Key in the secret holding the admin password
+  ## @param auth.secretKeys.configAdminPasswordKey Key in the secret holding the `cn=config` admin password
+  ## @param auth.secretKeys.accesslogAdminPasswordKey Key in the secret holding the accesslog admin password
+  ## @param auth.secretKeys.userPasswordsKey Key in the secret holding the comma-separated user passwords
+  ##
+  secretKeys:
+    adminPasswordKey: admin-password
+    configAdminPasswordKey: config-admin-password
+    accesslogAdminPasswordKey: accesslog-admin-password
+    userPasswordsKey: user-passwords
+  ## @param auth.usePasswordFiles Mount credentials as files and use the `*_FILE` environment variables (applies to admin passwords only)
+  ##
+  usePasswordFiles: true
+
+## Directory configuration
+## ref: https://github.com/bitnami/containers/blob/main/bitnami/openldap/README.md#configuration
+##
+ldap:
+  ## @param ldap.root LDAP base DN of the tree
+  ##
+  root: dc=example,dc=org
+  ## @param ldap.suffix LDAP suffix of the database (defaults to `ldap.root` when empty)
+  ##
+  suffix: ""
+  ## @param ldap.userOu Organizational unit holding the users of the default tree
+  ##
+  userOu: users
+  ## @param ldap.groupOu Organizational unit holding the groups of the default tree
+  ##
+  groupOu: groups
+  ## @param ldap.group Group created in the default tree, containing all `auth.users`
+  ##
+  group: readers
+  ## @param ldap.skipDefaultTree Do not create the default tree (base DN, users and group)
+  ##
+  skipDefaultTree: false
+  ## @param ldap.addSchemas Add the schemas listed in `ldap.extraSchemas`
+  ##
+  addSchemas: true
+  ## @param ldap.extraSchemas List of extra schemas shipped with OpenLDAP to add
+  ##
+  extraSchemas:
+    - cosine
+    - inetorgperson
+    - nis
+  ## @param ldap.allowAnonBinding Allow anonymous bindings to the LDAP server
+  ##
+  allowAnonBinding: false
+  ## @param ldap.logLevel slapd log level
+  ## ref: https://www.openldap.org/doc/admin26/slapdconf2.html
+  ##
+  logLevel: "256"
+  ## @param ldap.passwordHash Hashing scheme used for the `userPassword` attribute
+  ##
+  passwordHash: "{SSHA}"
+  ## @param ldap.ulimitNofiles Maximum number of open file descriptors for slapd
+  ##
+  ulimitNofiles: 1024
+  ## Password policy overlay
+  ##
+  ppolicy:
+    ## @param ldap.ppolicy.enabled Enable the password policy (ppolicy) overlay
+    ##
+    enabled: false
+    ## @param ldap.ppolicy.useLockout Return a lockout error instead of an invalid credentials error when a locked account binds
+    ##
+    useLockout: false
+    ## @param ldap.ppolicy.hashCleartext Hash clear-text passwords sent with add or modify operations
+    ##
+    hashCleartext: false
+  ## Access log overlay
+  ##
+  accesslog:
+    ## @param ldap.accesslog.enabled Enable the accesslog overlay
+    ##
+    enabled: false
+    ## @param ldap.accesslog.db DN of the accesslog database
+    ##
+    db: cn=accesslog
+    ## @param ldap.accesslog.logops Operation types to log
+    ##
+    logops: writes
+    ## @param ldap.accesslog.logsuccess Log only successful operations
+    ##
+    logsuccess: "TRUE"
+    ## @param ldap.accesslog.logpurge Age of the entries to purge and purge interval
+    ##
+    logpurge: "07+00:00 01+00:00"
+    ## @param ldap.accesslog.logold Filter of the entries whose old values are logged
+    ##
+    logold: "(objectClass=*)"
+    ## @param ldap.accesslog.logoldattr Attributes whose old values are logged
+    ##
+    logoldattr: objectClass
+    ## @param ldap.accesslog.adminUsername Admin username of the accesslog database
+    ##
+    adminUsername: admin
+    ## @param ldap.accesslog.adminPassword Admin password of the accesslog database (randomly generated if empty and `auth.existingSecret` is not set)
+    ##
+    adminPassword: ""
+  ## Sync provider overlay
+  ##
+  syncprov:
+    ## @param ldap.syncprov.enabled Enable the syncprov overlay (replication provider)
+    ##
+    enabled: false
+    ## @param ldap.syncprov.checkpoint syncprov checkpoint (`<ops> <minutes>`)
+    ##
+    checkpoint: "100 10"
+    ## @param ldap.syncprov.sessionlog syncprov session log size
+    ##
+    sessionlog: "100"
+  ## PROXY protocol support
+  ##
+  proxyProtocol:
+    ## @param ldap.proxyProtocol.enabled Enable the PROXY protocol listeners (`pldap://` and `pldaps://`)
+    ##
+    enabled: false
+    ## @param ldap.proxyProtocol.ldapPort Container port for PROXY protocol LDAP (set it to `containerPorts.ldap` to only accept proxied LDAP)
+    ##
+    ldapPort: 1390
+    ## @param ldap.proxyProtocol.ldapsPort Container port for PROXY protocol LDAPS (set it to `containerPorts.ldaps` to only accept proxied LDAPS)
+    ##
+    ldapsPort: 1637
+
+## TLS configuration
+##
+tls:
+  ## @param tls.enabled Enable TLS (LDAPS listener and StartTLS)
+  ##
+  enabled: false
+  ## @param tls.autoGenerated Generate a self-signed CA and certificate (ignored when `tls.existingSecret` is set)
+  ##
+  autoGenerated: true
+  ## @param tls.existingSecret Name of an existing secret holding the certificate, key and CA
+  ##
+  existingSecret: ""
+  ## @param tls.certFilename Certificate filename in the TLS secret
+  ## @param tls.certKeyFilename Certificate key filename in the TLS secret
+  ## @param tls.certCAFilename CA certificate filename in the TLS secret
+  ##
+  certFilename: tls.crt
+  certKeyFilename: tls.key
+  certCAFilename: ca.crt
+  ## @param tls.require Reject non-TLS connections
+  ##
+  require: false
+  ## @param tls.verifyClients Client certificate verification policy (`never`, `allow`, `try` or `demand`)
+  ##
+  verifyClients: never
+
+## @param customLdifFiles Custom LDIF files loaded at first boot instead of the default tree (key: filename, value: content)
+## e.g:
+## customLdifFiles:
+##   00-root.ldif: |-
+##     dn: dc=example,dc=org
+##     objectClass: dcObject
+##     objectClass: organization
+##     dc: example
+##     o: example
+##
+customLdifFiles: {}
+## @param existingCustomLdifConfigMap ConfigMap holding custom LDIF files (overrides `customLdifFiles`)
+##
+existingCustomLdifConfigMap: ""
+## @param customSchemaFiles Custom schema LDIF files loaded at first boot (key: filename, value: content)
+##
+customSchemaFiles: {}
+## @param existingCustomSchemaConfigMap ConfigMap holding custom schema LDIF files (overrides `customSchemaFiles`)
+##
+existingCustomSchemaConfigMap: ""
+
+## @param command Override default container command (useful when using custom images)
+##
+command: []
+## @param args Override default container args (useful when using custom images)
+##
+args: []
+## @param extraEnvVars Array with extra environment variables to add to OpenLDAP containers
+## e.g:
+## extraEnvVars:
+##   - name: FOO
+##     value: "bar"
+##
+extraEnvVars: []
+## @param extraEnvVarsCM Name of existing ConfigMap containing extra env vars for OpenLDAP containers
+##
+extraEnvVarsCM: ""
+## @param extraEnvVarsSecret Name of existing Secret containing extra env vars for OpenLDAP containers
+##
+extraEnvVarsSecret: ""
+
+## @section OpenLDAP statefulset parameters
+##
+
+## @param replicaCount Number of OpenLDAP replicas to deploy
+## NOTE: replicas do not replicate data unless syncrepl is configured (e.g. through `customLdifFiles` and `ldap.syncprov.enabled`)
+##
+replicaCount: 1
+## @param containerPorts.ldap OpenLDAP LDAP container port
+## @param containerPorts.ldaps OpenLDAP LDAPS container port
+##
+containerPorts:
+  ldap: 1389
+  ldaps: 1636
+## @param extraContainerPorts Optionally specify extra list of additional ports for OpenLDAP containers
+##
+extraContainerPorts: []
+## Configure extra options for OpenLDAP containers' liveness, readiness and startup probes
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
+## @param livenessProbe.enabled Enable livenessProbe on OpenLDAP containers
+## @param livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+## @param livenessProbe.periodSeconds Period seconds for livenessProbe
+## @param livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+## @param livenessProbe.failureThreshold Failure threshold for livenessProbe
+## @param livenessProbe.successThreshold Success threshold for livenessProbe
+##
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 10
+  successThreshold: 1
+## @param readinessProbe.enabled Enable readinessProbe on OpenLDAP containers
+## @param readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+## @param readinessProbe.periodSeconds Period seconds for readinessProbe
+## @param readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+## @param readinessProbe.failureThreshold Failure threshold for readinessProbe
+## @param readinessProbe.successThreshold Success threshold for readinessProbe
+##
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 10
+  successThreshold: 1
+## @param startupProbe.enabled Enable startupProbe on OpenLDAP containers
+## @param startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+## @param startupProbe.periodSeconds Period seconds for startupProbe
+## @param startupProbe.timeoutSeconds Timeout seconds for startupProbe
+## @param startupProbe.failureThreshold Failure threshold for startupProbe
+## @param startupProbe.successThreshold Success threshold for startupProbe
+##
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 30
+  successThreshold: 1
+## @param customLivenessProbe Custom livenessProbe that overrides the default one
+##
+customLivenessProbe: {}
+## @param customReadinessProbe Custom readinessProbe that overrides the default one
+##
+customReadinessProbe: {}
+## @param customStartupProbe Custom startupProbe that overrides the default one
+##
+customStartupProbe: {}
+## OpenLDAP resource requests and limits
+## ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+## @param resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production).
+##
+resourcesPreset: "nano"
+## @param resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+## Example:
+## resources:
+##   requests:
+##     cpu: 2
+##     memory: 512Mi
+##   limits:
+##     cpu: 3
+##     memory: 1024Mi
+##
+resources: {}
+## Configure Pods Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+## @param podSecurityContext.enabled Enable OpenLDAP pods' Security Context
+## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy for OpenLDAP pods
+## @param podSecurityContext.sysctls Set kernel settings using the sysctl interface for OpenLDAP pods
+## @param podSecurityContext.supplementalGroups Set filesystem extra groups for OpenLDAP pods
+## @param podSecurityContext.fsGroup Set fsGroup in OpenLDAP pods' Security Context
+##
+podSecurityContext:
+  enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 1001
+## Configure Container Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+## @param containerSecurityContext.enabled Enabled OpenLDAP container' Security Context
+## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in OpenLDAP container
+## @param containerSecurityContext.runAsUser Set runAsUser in OpenLDAP container' Security Context
+## @param containerSecurityContext.runAsGroup Set runAsGroup in OpenLDAP container' Security Context (must be 0: the image grants `cn=config` access to `gidNumber=0+uidNumber=<uid>` over ldapi)
+## @param containerSecurityContext.runAsNonRoot Set runAsNonRoot in OpenLDAP container' Security Context
+## @param containerSecurityContext.readOnlyRootFilesystem Set readOnlyRootFilesystem in OpenLDAP container' Security Context
+## @param containerSecurityContext.privileged Set privileged in OpenLDAP container' Security Context
+## @param containerSecurityContext.allowPrivilegeEscalation Set allowPrivilegeEscalation in OpenLDAP container' Security Context
+## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped in OpenLDAP container
+## @param containerSecurityContext.capabilities.add List of capabilities to be added in OpenLDAP container (slapd carries the `cap_net_bind_service` file capability and cannot be executed without it)
+## @param containerSecurityContext.seccompProfile.type Set seccomp profile in OpenLDAP container
+##
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: {}
+  runAsUser: 1001
+  runAsGroup: 0
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+    add: ["NET_BIND_SERVICE"]
+  seccompProfile:
+    type: "RuntimeDefault"
+
+## @param automountServiceAccountToken Mount Service Account token in pod
+##
+automountServiceAccountToken: false
+## @param hostAliases OpenLDAP pods host aliases
+## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+##
+hostAliases: []
+## @param statefulsetAnnotations Annotations for OpenLDAP statefulset
+##
+statefulsetAnnotations: {}
+## @param podLabels Extra labels for OpenLDAP pods
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+##
+podLabels: {}
+## @param podAnnotations Annotations for OpenLDAP pods
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+##
+podAnnotations: {}
+## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAffinityPreset: ""
+## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAntiAffinityPreset: soft
+## Node affinity preset
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+##
+nodeAffinityPreset:
+  ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+  ##
+  type: ""
+  ## @param nodeAffinityPreset.key Node label key to match. Ignored if `affinity` is set
+  ##
+  key: ""
+  ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set
+  ## E.g.
+  ## values:
+  ##   - e2e-az1
+  ##   - e2e-az2
+  ##
+  values: []
+## @param affinity Affinity for OpenLDAP pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+## NOTE: `podAffinityPreset`, `podAntiAffinityPreset`, and `nodeAffinityPreset` will be ignored when it's set
+##
+affinity: {}
+## @param nodeSelector Node labels for OpenLDAP pods assignment
+## ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+## @param tolerations Tolerations for OpenLDAP pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+## @param topologySpreadConstraints Topology Spread Constraints for OpenLDAP pods assignment spread across your cluster among failure-domains
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/#spread-constraints-for-pods
+##
+topologySpreadConstraints: []
+## @param priorityClassName OpenLDAP pods' priorityClassName
+##
+priorityClassName: ""
+## @param schedulerName Name of the k8s scheduler (other than default) for OpenLDAP pods
+## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
+##
+schedulerName: ""
+## @param terminationGracePeriodSeconds Seconds OpenLDAP pods need to terminate gracefully
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods
+##
+terminationGracePeriodSeconds: ""
+## @param podManagementPolicy Pod management policy for the OpenLDAP statefulset
+##
+podManagementPolicy: OrderedReady
+## @param updateStrategy.type OpenLDAP statefulset strategy type
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
+##
+updateStrategy:
+  ## Can be set to RollingUpdate or OnDelete
+  ##
+  type: RollingUpdate
+## @param lifecycleHooks for OpenLDAP containers to automate configuration before or after startup
+##
+lifecycleHooks: {}
+## @param extraVolumes Optionally specify extra list of additional volumes for the OpenLDAP pods
+##
+extraVolumes: []
+## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the OpenLDAP containers
+##
+extraVolumeMounts: []
+## @param sidecars Add additional sidecar containers to the OpenLDAP pods
+## e.g:
+## sidecars:
+##   - name: your-image-name
+##     image: your-image
+##     imagePullPolicy: Always
+##     ports:
+##       - name: portname
+##         containerPort: 1234
+##
+sidecars: []
+## @param initContainers Add additional init containers to the OpenLDAP pods
+##
+initContainers: []
+
+## Pod Disruption Budget configuration
+## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb
+## @param pdb.create Enable/disable a Pod Disruption Budget creation
+## @param pdb.minAvailable Minimum number/percentage of pods that should remain scheduled
+## @param pdb.maxUnavailable Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `pdb.minAvailable` and `pdb.maxUnavailable` are empty.
+##
+pdb:
+  create: true
+  minAvailable: ""
+  maxUnavailable: ""
+
+## @section Traffic Exposure Parameters
+##
+
+## OpenLDAP service parameters
+##
+service:
+  ## @param service.type OpenLDAP service type
+  ##
+  type: ClusterIP
+  ## @param service.ports.ldap OpenLDAP service LDAP port
+  ## @param service.ports.ldaps OpenLDAP service LDAPS port (only exposed when `tls.enabled` is true)
+  ##
+  ## @param service.ports.pldap OpenLDAP service PROXY protocol LDAP port (only exposed when `ldap.proxyProtocol.enabled` is true and its port differs from `containerPorts.ldap`)
+  ## @param service.ports.pldaps OpenLDAP service PROXY protocol LDAPS port (same conditions, with `tls.enabled` also true)
+  ##
+  ports:
+    ldap: 389
+    ldaps: 636
+    pldap: 1390
+    pldaps: 1637
+  ## Node ports to expose
+  ## @param service.nodePorts.ldap Node port for LDAP
+  ## @param service.nodePorts.ldaps Node port for LDAPS
+  ## NOTE: choose port between <30000-32767>
+  ##
+  nodePorts:
+    ldap: ""
+    ldaps: ""
+  ## @param service.clusterIP OpenLDAP service Cluster IP
+  ## e.g.:
+  ## clusterIP: None
+  ##
+  clusterIP: ""
+  ## @param service.loadBalancerIP OpenLDAP service Load Balancer IP
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-loadbalancer
+  ##
+  loadBalancerIP: ""
+  ## @param service.loadBalancerSourceRanges OpenLDAP service Load Balancer sources
+  ## ref: https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
+  ## e.g:
+  ## loadBalancerSourceRanges:
+  ##   - 10.10.10.0/24
+  ##
+  loadBalancerSourceRanges: []
+  ## @param service.externalTrafficPolicy OpenLDAP service external traffic policy
+  ## ref https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
+  ##
+  externalTrafficPolicy: Cluster
+  ## @param service.annotations Additional custom annotations for OpenLDAP service
+  ##
+  annotations: {}
+  ## @param service.extraPorts Extra ports to expose in OpenLDAP service (normally used with the `sidecars` value)
+  ##
+  extraPorts: []
+  ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
+  ## Values: ClientIP or None
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
+  ##
+  sessionAffinity: None
+  ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
+  ## sessionAffinityConfig:
+  ##   clientIP:
+  ##     timeoutSeconds: 300
+  ##
+  sessionAffinityConfig: {}
+  ## Headless service properties
+  ##
+  headless:
+    ## @param service.headless.annotations Annotations for the headless service.
+    ##
+    annotations: {}
+
+## Network Policies
+## Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+##
+networkPolicy:
+  ## @param networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+  ##
+  enabled: true
+  ## @param networkPolicy.allowExternal Don't require server label for connections
+  ## The Policy model to apply. When set to false, only pods with the correct
+  ## server label will have network access to the ports server is listening
+  ## on. When true, server will accept connections from any source
+  ## (with the correct destination port).
+  ##
+  allowExternal: true
+  ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+  ##
+  allowExternalEgress: true
+  ## @param networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolicy
+  ##
+  extraIngress: []
+  ## @param networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
+  ##
+  extraEgress: []
+  ## @param networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+  ## @param networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+  ##
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
+
+## @section Persistence Parameters
+##
+
+## Enable persistence using Persistent Volume Claims
+## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+##
+persistence:
+  ## @param persistence.enabled Enable persistence using Persistent Volume Claims
+  ##
+  enabled: true
+  ## @param persistence.mountPath Path to mount the volume at.
+  ##
+  mountPath: /bitnami/openldap
+  ## @param persistence.subPath The subdirectory of the volume to mount to, useful in dev environments and one PV for multiple services
+  ##
+  subPath: ""
+  ## @param persistence.storageClass Storage class of backing PVC
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  storageClass: ""
+  ## @param persistence.annotations Persistent Volume Claim annotations
+  ##
+  annotations: {}
+  ## @param persistence.labels Persistent Volume Claim labels
+  ##
+  labels: {}
+  ## @param persistence.accessModes Persistent Volume Access Modes
+  ##
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size Size of data volume
+  ##
+  size: 8Gi
+  ## @param persistence.existingClaim The name of an existing PVC to use for persistence (only valid with a single replica)
+  ##
+  existingClaim: ""
+  ## @param persistence.selector Selector to match an existing Persistent Volume for OpenLDAP data PVC
+  ## If set, the PVC can't have a PV dynamically provisioned for it
+  ## E.g.
+  ## selector:
+  ##   matchLabels:
+  ##     app: my-app
+  ##
+  selector: {}
+  ## @param persistence.dataSource Custom PVC data source
+  ##
+  dataSource: {}
+## persistentVolumeClaimRetentionPolicy
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#persistentvolumeclaim-retention
+## @param persistentVolumeClaimRetentionPolicy.enabled Controls if and how PVCs are deleted during the lifecycle of a StatefulSet
+## @param persistentVolumeClaimRetentionPolicy.whenScaled Volume retention behavior when the replica count of the StatefulSet is reduced
+## @param persistentVolumeClaimRetentionPolicy.whenDeleted Volume retention behavior that applies when the StatefulSet is deleted
+##
+persistentVolumeClaimRetentionPolicy:
+  enabled: false
+  whenScaled: Retain
+  whenDeleted: Retain
+
+## @section Other Parameters
+##
+
+## ServiceAccount configuration
+##
+serviceAccount:
+  ## @param serviceAccount.create Specifies whether a ServiceAccount should be created
+  ##
+  create: true
+  ## @param serviceAccount.name The name of the ServiceAccount to use.
+  ## If not set and create is true, a name is generated using the common.names.fullname template
+  ##
+  name: ""
+  ## @param serviceAccount.annotations Additional Service Account annotations (evaluated as a template)
+  ##
+  annotations: {}
+  ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
+  ##
+  automountServiceAccountToken: false

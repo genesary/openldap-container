@@ -1,0 +1,132 @@
+name: Publish OpenLDAP Helm chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - chart/**
+      - .github/workflows/chart.yaml
+  pull_request:
+    paths:
+      - chart/**
+      - .github/workflows/chart.yaml
+
+jobs:
+  changes:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      version: ${{ steps.filter.outputs.version }}
+
+    steps:
+      - &checkout-repo
+        name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Detect chart version bump
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            version:
+              - chart/Chart.yaml
+
+  test-chart:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      CHART_PATH: chart
+      RELEASE_NAME: openldap
+      NAMESPACE: openldap
+
+    steps:
+      - *checkout-repo
+
+      - &install-helm
+        name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+
+      - name: Create kind cluster
+        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+
+      - name: Build chart dependencies
+        run: helm dependency build "$CHART_PATH"
+
+      - name: Lint chart
+        run: helm lint "$CHART_PATH"
+
+      - name: Install chart
+        run: |
+          helm install "$RELEASE_NAME" "$CHART_PATH" \
+            --namespace "$NAMESPACE" \
+            --create-namespace \
+            --wait \
+            --timeout 5m
+
+      - name: Query LDAP directory
+        run: |
+          password=$(kubectl get secret --namespace "$NAMESPACE" "$RELEASE_NAME" \
+            -o jsonpath='{.data.admin-password}' | base64 -d)
+          kubectl exec --namespace "$NAMESPACE" "$RELEASE_NAME-0" -- \
+            ldapsearch -x -H ldap://localhost:1389 \
+              -b "dc=example,dc=org" \
+              -D "cn=admin,dc=example,dc=org" \
+              -w "$password" \
+              "(uid=user01)" dn | tee ldapsearch.out
+          grep -q '^dn: cn=user01,ou=users,dc=example,dc=org$' ldapsearch.out
+
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          kubectl get all --namespace "$NAMESPACE" -o wide
+          kubectl describe pods --namespace "$NAMESPACE"
+          kubectl logs --namespace "$NAMESPACE" --all-containers --prefix \
+            -l app.kubernetes.io/instance="$RELEASE_NAME" --tail=-1
+
+  publish-chart:
+    if: github.event_name == 'push' && needs.changes.outputs.version == 'true'
+    needs:
+      - changes
+      - test-chart
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: ghcr.io
+      CHART_OCI_PATH: genesary/helm
+      CHART_PATH: chart
+
+    steps:
+      - *checkout-repo
+
+      - *install-helm
+
+      - name: Login to GitHub Container Registry
+        env:
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$REGISTRY_PASSWORD" | helm registry login "$REGISTRY" \
+            --username "$REGISTRY_USER" \
+            --password-stdin
+
+      - name: Build chart dependencies
+        run: helm dependency build "$CHART_PATH"
+
+      - name: Package and push Helm chart
+        run: |
+          package=$(helm package "$CHART_PATH" | awk '{print $NF}')
+          helm push "$package" "oci://$REGISTRY/$CHART_OCI_PATH"
