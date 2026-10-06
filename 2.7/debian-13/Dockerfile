@@ -5,7 +5,7 @@
 ARG OPENLDAP_VERSION=2.7.0
 ARG OPENLDAP_GIT_TAG=OPENLDAP_REL_ENG_2_7_0
 
-FROM mcr.microsoft.com/vscode/devcontainers/cpp:dev-debian13 AS build
+FROM mcr.microsoft.com/vscode/devcontainers/cpp:dev-debian13@sha256:c53c8c707da7fa4a374ef2551ad3d64560929c39d0293c279464b63bec5d71e6 AS build
 
 ARG OPENLDAP_GIT_TAG
 
@@ -78,7 +78,7 @@ RUN rm -rf ${PREFIX}/share/man && \
     find ${PREFIX} -name "*.la" -delete && \
     find ${PREFIX} -name "*.a" -delete
 
-FROM docker.io/debian:13-slim
+FROM docker.io/debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 ENV HOME="/" \
     OS_FLAVOUR="debian-13" \
