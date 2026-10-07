@@ -20,7 +20,8 @@ Both directories mirror the same structure and are meant to stay in sync (same m
 scripts, and config variables — only the OpenLDAP source version differs):
 
 - `Dockerfile` — multi-stage build: compiles OpenLDAP + contrib modules from source in a `cpp:dev-debian13`
-  build stage, then copies the result into a slim `debian:13-slim` runtime stage.
+  build stage, then copies the result into a slim `debian:13-slim` runtime stage. Both base images
+  are pinned as `<tag>@sha256:<digest>`; keep the tag so Dependabot can update the digest.
 - `customize.sh` — post-`make install` filesystem reshuffle (moves libexec/subdir layout to match
   Bitnami's expected paths) run inside the build stage.
 - `prebuildfs/` — files copied into the runtime image *before* installing OS packages (helper
@@ -66,14 +67,24 @@ via the workflow `env:` block and is the source of truth for published versions.
 ## CI / publishing
 
 `.github/workflows/openldap-2-6.yaml` and `openldap-2-7.yaml` each build and push their respective
-image to `ghcr.io/genesary/openldap` on push to `main`, for `linux/amd64` and `linux/arm64`. The
+image to `ghcr.io/genesary/openldap` on push to `main`, for `linux/amd64` and `linux/arm64`. Each
+workflow only runs when its own version directory (`2.6/**` or `2.7/**`) or workflow file changes. The
 `OPENLDAP_VERSION` env var in each workflow is what actually determines the published version —
 bumping a release means editing that value (and the matching `ARG` default in the Dockerfile, to
 keep local builds consistent). Images get mutable tags (`latest`, `<minor>`, `<version>`) plus an
 immutable `<version>-debian-13-<short-sha>` tag, and a build attestation is published alongside.
 
+`.github/workflows/chart.yaml` tests and publishes the Helm chart. On pull requests and pushes to
+`main` that touch `chart/**` or the workflow, the `test-chart` job lints the chart, installs it on a
+kind cluster and checks the default tree with `ldapsearch`. The `publish-chart` job pushes the chart
+to `oci://ghcr.io/genesary/helm` only on pushes to `main`, after the test passes and when
+`chart/Chart.yaml` changed (detected by `dorny/paths-filter`): bump the chart `version` to publish a
+new release. Steps shared between jobs are reused through YAML anchors, so the job defining an
+anchor must stay above the jobs using it.
+
 Dependabot (`.github/dependabot.yml`) tracks `github-actions` updates at the repo root and `docker`
 base-image updates separately for each of `2.6/debian-13` and `2.7/debian-13`.
 
-There is no test suite or lint workflow in CI; the devcontainer includes `shellcheck` for manually
-checking the `prebuildfs`/`rootfs` shell scripts.
+The images have no test suite in CI; the devcontainer includes `shellcheck` for manually checking
+the `prebuildfs`/`rootfs` shell scripts, and `kind`, `kubectl` and `helm` for testing the chart
+locally.

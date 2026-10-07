@@ -28,6 +28,25 @@ volumes:
   openldap_data:
 ```
 
+## Helm chart
+
+A Helm chart deploys the OpenLDAP 2.7 image on Kubernetes. It is published to
+`oci://ghcr.io/genesary/helm/openldap`:
+
+```sh
+helm install my-ldap oci://ghcr.io/genesary/helm/openldap \
+  --namespace ldap --create-namespace
+```
+
+Retrieve the generated admin password:
+
+```sh
+kubectl get secret -n ldap my-ldap-openldap -o jsonpath='{.data.admin-password}' | base64 -d
+```
+
+The chart follows Bitnami's chart conventions. See the [chart README](chart/README.md) for its
+parameters.
+
 ## Available tags
 
 | Tag                                          | OpenLDAP version | Base OS        |
@@ -37,7 +56,7 @@ volumes:
 
 `latest` follows the most recent release line, currently 2.7. Pin `2.6` to stay on the previous line.
 
-Both lines are built from the same base image and ship the same modules, entrypoint scripts, and configuration variables; only the OpenLDAP sources differ.
+Both lines are built from the same base image, pinned by digest, and ship the same modules, entrypoint scripts, and configuration variables; only the OpenLDAP sources differ.
 
 Every build also publishes an immutable tag `<version>-debian-13-<short-sha>`, where `<short-sha>` is the 7-character Git commit the image was built from. The tags above are mutable and always point to the most recent build; use the commit-suffixed tag to pin a specific one. The same value is exposed inside the image as `IMAGE_REVISION`.
 
