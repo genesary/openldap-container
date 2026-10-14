@@ -5,7 +5,7 @@
 ARG OPENLDAP_VERSION=2.7.0
 ARG OPENLDAP_GIT_TAG=OPENLDAP_REL_ENG_2_7_0
 
-FROM mcr.microsoft.com/vscode/devcontainers/cpp:dev-debian13@sha256:c53c8c707da7fa4a374ef2551ad3d64560929c39d0293c279464b63bec5d71e6 AS build
+FROM mcr.microsoft.com/vscode/devcontainers/cpp:dev-debian13@sha256:17ed62e4be5af67f08bebc7a5cb22645e842dcc03515b4a4f8887675b75fbec1 AS build
 
 ARG OPENLDAP_GIT_TAG
 
