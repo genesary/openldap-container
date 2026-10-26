@@ -56,8 +56,8 @@ Git tag mirrors the version with underscores):
 
 ```sh
 docker build \
-  --build-arg OPENLDAP_VERSION=2.7.1 \
-  --build-arg OPENLDAP_GIT_TAG=OPENLDAP_REL_ENG_2_7_1 \
+  --build-arg OPENLDAP_VERSION=2.7.2 \
+  --build-arg OPENLDAP_GIT_TAG=OPENLDAP_REL_ENG_2_7_2 \
   -t openldap:local .
 ```
 

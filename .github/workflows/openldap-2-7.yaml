@@ -21,7 +21,7 @@ jobs:
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: genesary/openldap
-      OPENLDAP_VERSION: 2.7.1
+      OPENLDAP_VERSION: 2.7.2
 
     steps:
       - name: Checkout repository
