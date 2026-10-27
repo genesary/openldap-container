@@ -78,7 +78,7 @@ RUN rm -rf ${PREFIX}/share/man && \
     find ${PREFIX} -name "*.la" -delete && \
     find ${PREFIX} -name "*.a" -delete
 
-FROM docker.io/debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
+FROM docker.io/debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
 
 ENV HOME="/" \
     OS_FLAVOUR="debian-13" \
